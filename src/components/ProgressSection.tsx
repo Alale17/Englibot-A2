@@ -2,8 +2,11 @@ import { TrendingUp, Award, Calendar, Target, BookOpen, Clock, Star, Users } fro
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
+
 export const ProgressSection = () => {
-  const stats = [
+/*   const stats = [
+
+    
     {
       label: "Días estudiando",
       value: "23",
@@ -84,7 +87,7 @@ export const ProgressSection = () => {
           </p>
         </div>
 
-        {/* Statistics Cards */}
+  
         <div className="grid md:grid-cols-4 gap-6 mb-12">
           {stats.map((stat, index) => (
             <Card key={index} className="p-6 hover:shadow-card transition-all duration-300 animate-fade-in" style={{ animationDelay: `${index * 100}ms` }}>
@@ -104,7 +107,7 @@ export const ProgressSection = () => {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
-          {/* Weekly Progress Chart */}
+         
           <Card className="p-6">
             <h3 className="text-lg font-semibold text-foreground mb-6 flex items-center">
               <Calendar className="h-5 w-5 mr-2 text-primary" />
@@ -135,7 +138,7 @@ export const ProgressSection = () => {
             </div>
           </Card>
 
-          {/* Skill Levels */}
+    
           <Card className="p-6">
             <h3 className="text-lg font-semibold text-foreground mb-6 flex items-center">
               <TrendingUp className="h-5 w-5 mr-2 text-primary" />
@@ -160,13 +163,13 @@ export const ProgressSection = () => {
               ))}
             </div>
             <div className="mt-6 text-center">
-              <p className="text-sm text-muted-foreground mb-2">Nivel General A1</p>
+              <p className="text-sm text-muted-foreground mb-2">Nivel General A2</p>
               <div className="text-2xl font-bold text-primary">57%</div>
             </div>
           </Card>
         </div>
 
-        {/* Recent Achievements */}
+      
         <Card className="p-6 mt-8">
           <h3 className="text-lg font-semibold text-foreground mb-6 flex items-center">
             <Award className="h-5 w-5 mr-2 text-accent" />
@@ -190,4 +193,5 @@ export const ProgressSection = () => {
       </div>
     </section>
   );
+   */
 };

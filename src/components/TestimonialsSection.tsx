@@ -10,35 +10,35 @@ export const TestimonialsSection = () => {
 
   const testimonials = [
     {
-      name: "María González",
+      name: "Oriana Delgado",
       role: "Estudiante Universitaria",
       avatar: "MG",
       rating: 5,
-      comment: "EngliBot me ayudó a superar mi miedo de hablar inglés. El asistente virtual es muy paciente y las lecciones están muy bien estructuradas. ¡En solo 3 meses pasé de cero a nivel A1!",
+      comment: "EngliBot me ayudó a superar mi miedo de hablar inglés. El asistente virtual es muy paciente y las lecciones están muy bien estructuradas. ¡En solo 3 meses pasé de cero a nivel A2!",
       course: "Vocabulario y Gramática"
     },
     {
-      name: "Carlos Ruiz",
-      role: "Profesional en Tecnología",
+      name: "Danilo Miranda",
+      role: "Estudiante Universitario",
       avatar: "CR",
       rating: 5,
       comment: "Como desarrollador, aprecio mucho la tecnología detrás de esta aplicación. La IA realmente se adapta a mi ritmo de aprendizaje y me mantiene motivado con el sistema de logros.",
       course: "Comprensión Auditiva"
     },
     {
-      name: "Ana López",
-      role: "Madre de Familia",
+      name: "Amadaney Liu",
+      role: "Estudiante Universitaria",
       avatar: "AL",
       rating: 4,
-      comment: "Perfecto para estudiar en mis ratos libres. Puedo aprender mientras los niños duermen. El asistente virtual está disponible 24/7, lo cual es ideal para mi horario irregular.",
-      course: "Módulo Completo A1"
+      comment: "Perfecto para estudiar en mis ratos libreS. El asistente virtual está disponible 24/7, lo cual es ideal para mi horario irregular.",
+      course: "Módulo Completo A2"
     },
     {
-      name: "Roberto Silva",
-      role: "Estudiante de Secundaria",
+      name: "Ivan Hernandez",
+      role: "Estudiante Universitario",
       avatar: "RS",
       rating: 5,
-      comment: "Me encanta que sea como un juego. Los quizzes son divertidos y las medallas me motivan a seguir estudiando. Mis padres están muy contentos con mi progreso en inglés.",
+      comment: "Me encanta que sea interactiva y me motiva a seguir estudiando. Mis padres están muy contentos con mi progreso en inglés.",
       course: "Pronunciación y Vocabulario"
     }
   ];
@@ -59,7 +59,7 @@ export const TestimonialsSection = () => {
             Lo que Dicen Nuestros Estudiantes
           </h2>
           <p className="text-xl text-muted-foreground">
-            Testimonios reales de personas que han transformado su inglés con EngliBot A1
+            Testimonios reales de personas que han transformado su inglés con EngliBot A2
           </p>
         </div>
 
@@ -103,7 +103,7 @@ export const TestimonialsSection = () => {
           ))}
         </div>
 
-        {/* Success Stats */}
+        {/* 
         <Card className="p-8 mb-16 bg-gradient-success text-white text-center">
           <h3 className="text-2xl font-bold mb-6">Resultados que Hablan por Sí Solos</h3>
           <div className="grid md:grid-cols-4 gap-8">
@@ -117,14 +117,14 @@ export const TestimonialsSection = () => {
             </div>
             <div>
               <div className="text-3xl font-bold mb-2">3.2</div>
-              <div className="text-sm opacity-90">Meses Promedio A1</div>
+              <div className="text-sm opacity-90">Meses Promedio A2</div>
             </div>
             <div>
               <div className="text-3xl font-bold mb-2">24/7</div>
               <div className="text-sm opacity-90">Soporte IA</div>
             </div>
           </div>
-        </Card>
+        </Card> */}
 
         {/* Feedback Form */}
         <div className="grid lg:grid-cols-2 gap-12 items-start">
@@ -191,7 +191,7 @@ export const TestimonialsSection = () => {
                 <Textarea
                   value={feedback.message}
                   onChange={(e) => setFeedback({ ...feedback, message: e.target.value })}
-                  placeholder="Cuéntanos qué te parece EngliBot A1..."
+                  placeholder="Cuéntanos qué te parece EngliBot A2..."
                   rows={4}
                   required
                 />

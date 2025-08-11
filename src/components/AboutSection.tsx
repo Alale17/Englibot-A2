@@ -17,7 +17,7 @@ export const AboutSection = () => {
     {
       icon: Zap,
       title: "Resultados Rápidos",
-      description: "Metodología probada que te ayuda a alcanzar el nivel A1 de inglés de manera eficiente y efectiva."
+      description: "Metodología probada que te ayuda a alcanzar el nivel A2 de inglés de manera eficiente y efectiva."
     },
     {
       icon: Shield,
@@ -46,14 +46,14 @@ export const AboutSection = () => {
   ];
 
   return (
-    <section id="about" className="py-20 bg-background">
+    <section id="about" className="pt-0 pb-20 bg-background">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold text-foreground mb-4">
-            ¿Qué es EngliBot A1?
+            ¿Qué es EngliBot A2?
           </h2>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            Tu asistente virtual de inglés diseñado específicamente para llevarte desde cero hasta el nivel A1 
+            Tu asistente virtual de inglés diseñado específicamente para llevarte desde cero hasta el nivel A2 
             del Marco Común Europeo de Referencia para las Lenguas.
           </p>
         </div>
@@ -64,7 +64,7 @@ export const AboutSection = () => {
             <div>
               <h3 className="text-2xl font-bold mb-4">Propósito del Proyecto</h3>
               <p className="text-lg opacity-90 mb-6">
-                EngliBot A1 es una herramienta educativa innovadora que combina inteligencia artificial 
+                EngliBot A2 es una herramienta educativa innovadora que combina inteligencia artificial 
                 con metodologías pedagógicas comprobadas para hacer que aprender inglés sea accesible, 
                 divertido y efectivo para principiantes absolutos.
               </p>
@@ -116,10 +116,10 @@ export const AboutSection = () => {
           </div>
 
           <Card className="p-8 bg-gradient-success text-secondary-foreground">
-            <h3 className="text-xl font-bold mb-4 text-white">¿Por qué Nivel A1?</h3>
+            <h3 className="text-xl font-bold mb-4 text-white">¿Por qué Nivel A2?</h3>
             <div className="space-y-4 text-white/90">
               <p className="text-sm">
-                El nivel A1 es el primer escalón del aprendizaje de idiomas. Al completarlo, serás capaz de:
+                El nivel A2 es el segundo escalón del aprendizaje de idiomas. Al completarlo, serás capaz de:
               </p>
               <ul className="space-y-2 text-sm">
                 <li>• Entender y usar expresiones cotidianas básicas</li>
@@ -135,25 +135,6 @@ export const AboutSection = () => {
             </div>
           </Card>
         </div>
-
-        {/* Contact Section */}
-        <Card className="p-8 mt-12 text-center bg-muted/30">
-          <h3 className="text-xl font-semibold text-foreground mb-4">
-            Desarrollado por Estudiantes, Para Estudiantes
-          </h3>
-          <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
-            Este proyecto es el resultado de un trabajo universitario dedicado a revolucionar 
-            la forma en que aprendemos idiomas. Combina investigación académica con tecnología moderna.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button variant="outline">
-              Ver Repositorio GitHub
-            </Button>
-            <Button variant="motivation">
-              Contactar al Equipo
-            </Button>
-          </div>
-        </Card>
       </div>
     </section>
   );

@@ -5,9 +5,8 @@ const navItems = [
   { id: "home", label: "Inicio" },
   { id: "chat", label: "Asistente" },
   { id: "modules", label: "Módulos" },
-  { id: "tests", label: "Evaluaciones" },
-  { id: "progress", label: "Progreso" },
-  { id: "about", label: "Información" },
+  { id: "tests", label: "¿Que es?" },
+
 ];
 
 export const Header = () => {
@@ -19,21 +18,21 @@ export const Header = () => {
   };
 
   return (
-    <header className="fixed top-0 w-full bg-card/95 backdrop-blur-sm border-b shadow-card z-50">
+    <header className="fixed top-0 w-full z-50 bg-black/70 backdrop-blur-md border-b border-white/10 shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo and Brand */}
+          {/* Logo e Identidad */}
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-gradient-primary rounded-lg shadow-glow">
-              <Bot className="h-6 w-6 text-primary-foreground" />
+            <div className="p-2 rounded-xl shadow-md bg-gradient-to-tr from-emerald-500 to-green-400">
+              <Bot className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-foreground">EngliBot A1</h1>
-              <p className="text-xs text-muted-foreground">Tu asistente de inglés</p>
+              <h1 className="text-lg font-bold text-white">EngliBot A2</h1>
+              <p className="text-xs text-white/70">Tu asistente de inglés</p>
             </div>
           </div>
 
-          {/* Desktop Navigation */}
+          {/* Navegación Desktop */}
           <nav className="hidden md:flex items-center space-x-1">
             {navItems.map((item) => (
               <Button
@@ -41,15 +40,15 @@ export const Header = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => scrollToSection(item.id)}
-                className="hover:bg-primary/10 hover:text-primary transition-colors"
+                className="text-white hover:bg-emerald-600/20 hover:text-emerald-300 transition-all"
               >
                 {item.label}
               </Button>
             ))}
           </nav>
 
-          {/* Mobile Menu Button */}
-          <Button variant="ghost" size="icon" className="md:hidden">
+          {/* Menú Móvil */}
+          <Button variant="ghost" size="icon" className="md:hidden text-white">
             <Menu className="h-5 w-5" />
           </Button>
         </div>

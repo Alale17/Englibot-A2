@@ -1,8 +1,17 @@
 import { useState } from "react";
-import { Send, Bot, User, BookOpen, Volume2, MessageSquare, HelpCircle } from "lucide-react";
+import {
+  Send,
+  Bot,
+  User,
+  BookOpen,
+  Volume2,
+  MessageSquare,
+  HelpCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 interface Message {
   id: string;
@@ -15,7 +24,8 @@ export const ChatSection = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      content: "¡Hola! Soy tu asistente virtual para aprender inglés A1. ¿En qué te puedo ayudar hoy? Puedes preguntarme sobre vocabulario, gramática, o simplemente practicar conversación. 😊",
+      content:
+        "¡Hola! Soy tu asistente virtual para aprender inglés A2. ¿En qué te puedo ayudar hoy? Puedes preguntarme sobre vocabulario, gramática, o simplemente practicar conversación. 😊",
       sender: "bot",
       timestamp: new Date(),
     },
@@ -29,29 +39,49 @@ export const ChatSection = () => {
     { icon: HelpCircle, text: "Hacer una pregunta", action: "question" },
   ];
 
-  const handleSendMessage = () => {
-    if (!inputMessage.trim()) return;
+  const speak = (text: string, lang: string = "en-US") => {
+    const synth = window.speechSynthesis;
+    const speakNow = () => {
+      const voices = synth.getVoices();
+      const preferredVoices = voices.filter(v =>
+        v.name.includes("Microsoft Emma") ||
+        v.name.includes("Google US English") ||
+        v.name.includes("Microsoft Zira") ||
+        v.name.toLowerCase().includes("female")
+      );
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.voice = preferredVoices[0] || voices.find(v => v.lang === lang) || null;
+      utterance.lang = lang;
+      utterance.rate = 0.95;
+      utterance.pitch = 1.1;
+      synth.speak(utterance);
+    };
+    if (synth.getVoices().length === 0) {
+      synth.addEventListener("voiceschanged", speakNow);
+    } else {
+      speakNow();
+    }
+  };
 
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim()) return;
     const newMessage: Message = {
       id: Date.now().toString(),
       content: inputMessage,
       sender: "user",
       timestamp: new Date(),
     };
-
-    setMessages(prev => [...prev, newMessage]);
+    setMessages((prev) => [...prev, newMessage]);
     setInputMessage("");
-
-    // Simulate bot response
-    setTimeout(() => {
-      const botResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        content: generateBotResponse(inputMessage),
-        sender: "bot",
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, botResponse]);
-    }, 1000);
+    const botReply = await generateBotResponse(inputMessage);
+    const botMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      content: botReply,
+      sender: "bot",
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, botMessage]);
+    speak(botReply);
   };
 
   const handleQuickSuggestion = (action: string) => {
@@ -61,18 +91,136 @@ export const ChatSection = () => {
       pronunciation: "Quiero practicar pronunciación",
       question: "Tengo una pregunta sobre inglés",
     };
-    
     setInputMessage(suggestions[action as keyof typeof suggestions] || "");
   };
 
-  const generateBotResponse = (userMessage: string): string => {
-    const responses = [
-      "¡Excelente! Te voy a ayudar con eso. En inglés A1, empezamos con lo básico...",
-      "¡Muy buena pregunta! Para nivel A1, te recomiendo...",
-      "¡Perfecto! Vamos a practicar juntos. Primero...",
-      "¡Me encanta tu interés! Para comenzar con esto...",
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
+  const generateBotResponse = async (userMessage: string): Promise<string> => {
+    try {
+      const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const chat = model.startChat({
+        history: [
+          {
+            role: "user",
+            parts: [{ text: "Actúa como un tutor de inglés nivel A2 amigable y las respuestas tienen que ser más cortas, Las respuestas solo en inglés" }],
+          },
+        ],
+      });
+      const result = await chat.sendMessage(userMessage);
+      const response = await result.response;
+      return response.text().trim();
+    } catch (error) {
+      console.error("❌ Error con Gemini:", error);
+      return "Lo siento, hubo un error al responder. Por favor, intenta de nuevo.";
+    }
+  };
+
+  type RecognitionResultEvent = Event & {
+    results: {
+      [index: number]: {
+        [index: number]: {
+          transcript: string;
+        };
+      };
+    };
+  };
+
+  type RecognitionErrorEvent = Event & {
+    error: string;
+  };
+
+  type CustomSpeechRecognition = {
+    lang: string;
+    interimResults: boolean;
+    maxAlternatives: number;
+    onresult: ((event: RecognitionResultEvent) => void) | null;
+    onerror: ((event: RecognitionErrorEvent) => void) | null;
+    start: () => void;
+  };
+
+  type CustomWindow = typeof window & {
+    SpeechRecognition: { new (): CustomSpeechRecognition };
+    webkitSpeechRecognition: { new (): CustomSpeechRecognition };
+  };
+
+  const handlePronunciationEvaluation = () => {
+    const lastBotMessage = messages.slice().reverse().find((m) => m.sender === "bot")?.content;
+    const expectedText = lastBotMessage || "How are you today?";
+
+    const customWindow = window as CustomWindow;
+    const recognition = new (
+      customWindow.SpeechRecognition || customWindow.webkitSpeechRecognition
+    )();
+
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = async (event) => {
+      const spokenText = event.results[0][0].transcript;
+      const score = calculateScore(expectedText, spokenText);
+      const feedback = await getGeminiFeedback(expectedText, spokenText, score);
+
+      const feedbackMessage: Message = {
+        id: Date.now().toString(),
+        content: feedback,
+        sender: "bot",
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, feedbackMessage]);
+    };
+
+    recognition.onerror = (event) => {
+      if (event.error === "aborted") {
+        console.warn("Reconocimiento abortado. Reintentando...");
+        recognition.start();
+      } else {
+        const errorMessage: Message = {
+          id: Date.now().toString(),
+          content: "❌ Error al reconocer el audio: " + event.error,
+          sender: "bot",
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      }
+    };
+
+    recognition.start();
+  };
+
+  const calculateScore = (expected: string, spoken: string): number => {
+    const expectedWords = expected.toLowerCase().split(" ");
+    const spokenWords = spoken.toLowerCase().split(" ");
+    const matched = expectedWords.filter((word, i) => word === spokenWords[i]);
+    return Math.round((matched.length / expectedWords.length) * 100);
+  };
+
+  const getGeminiFeedback = async (expected: string, spoken: string, score: number): Promise<string> => {
+    try {
+      const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const prompt = `
+Eres un profesor de inglés especializado en pronunciación. Evalúa la pronunciación de lo que el estudiante **sí dijo**, sin penalizar por partes omitidas del texto original.
+
+Palabra o frase esperada: "${expected}"
+Palabra o frase pronunciada: "${spoken}"
+
+1. Compara solo las palabras pronunciadas (no castigues por lo que no se dijo).
+2. Evalúa si las palabras dichas suenan correctamente en inglés.
+3. Da una retroalimentación breve en español (máx. 2 líneas).
+4. Asigna una puntuación del 0 al 100 basada en la pronunciación de lo pronunciado, no en lo faltante.
+
+
+Solo devuelve texto en español. Sé amable y directo. No incluyas sugerencias adicionales como "usa YouTube".
+`;
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text().trim();
+    } catch (error) {
+      console.error("Error con Gemini:", error);
+      return "❌ Error al generar el feedback con IA.";
+    }
   };
 
   return (
@@ -88,30 +236,34 @@ export const ChatSection = () => {
         </div>
 
         <Card className="p-6 shadow-card">
-          {/* Chat Messages */}
           <div className="h-96 overflow-y-auto mb-6 space-y-4 border rounded-lg p-4 bg-muted/30">
             {messages.map((message) => (
               <div
                 key={message.id}
                 className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"} animate-fade-in`}
               >
-                <div className={`flex items-start space-x-2 max-w-xs lg:max-w-md ${message.sender === "user" ? "flex-row-reverse space-x-reverse" : ""}`}>
-                  <div className={`p-2 rounded-full ${message.sender === "user" ? "bg-primary" : "bg-secondary"}`}>
+                <div
+                  className={`flex items-start space-x-2 max-w-xs lg:max-w-md ${message.sender === "user" ? "flex-row-reverse space-x-reverse" : ""}`}
+                >
+                  <div
+                    className={`p-2 rounded-full ${message.sender === "user" ? "bg-primary" : "bg-secondary"}`}
+                  >
                     {message.sender === "user" ? (
                       <User className="h-4 w-4 text-white" />
                     ) : (
                       <Bot className="h-4 w-4 text-white" />
                     )}
                   </div>
-                  <div className={`p-3 rounded-lg ${message.sender === "user" ? "bg-primary text-primary-foreground" : "bg-card border"}`}>
-                    <p className="text-sm">{message.content}</p>
+                  <div
+                    className={`p-3 rounded-lg ${message.sender === "user" ? "bg-primary text-primary-foreground" : "bg-card border"}`}
+                  >
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                   </div>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Quick Suggestions */}
           <div className="mb-6">
             <p className="text-sm text-muted-foreground mb-3">Sugerencias rápidas:</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -130,17 +282,19 @@ export const ChatSection = () => {
             </div>
           </div>
 
-          {/* Input Section */}
           <div className="flex space-x-2">
             <Input
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               placeholder="Escribe tu mensaje aquí..."
-              onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+              onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
               className="flex-1"
             />
-            <Button onClick={handleSendMessage} className="px-6">
+            <Button onClick={handleSendMessage} className="px-4">
               <Send className="h-4 w-4" />
+            </Button>
+            <Button onClick={handlePronunciationEvaluation} variant="secondary" className="px-3">
+              🎙️
             </Button>
           </div>
         </Card>

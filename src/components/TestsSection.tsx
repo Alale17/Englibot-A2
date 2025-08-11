@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 export const TestsSection = () => {
   const tests = [
     {
-      id: 1,
+      /* id: 1,
       title: "Quiz de Vocabulario Básico",
       description: "Evalúa tu conocimiento de palabras esenciales",
       questions: 15,
@@ -14,10 +14,10 @@ export const TestsSection = () => {
       difficulty: "Principiante",
       lastScore: 85,
       completed: true,
-      icon: Brain,
+      icon: Brain, */
     },
     {
-      id: 2,
+     /*  id: 2,
       title: "Gramática: Presente Simple",
       description: "Pon a prueba tu comprensión del presente simple",
       questions: 12,
@@ -25,57 +25,57 @@ export const TestsSection = () => {
       difficulty: "Principiante",
       lastScore: 72,
       completed: true,
-      icon: CheckCircle,
+      icon: CheckCircle, */
     },
     {
-      id: 3,
-      title: "Comprensión Auditiva A1",
+     /*  id: 3,
+      title: "Comprensión Auditiva A2",
       description: "Escucha y responde preguntas sobre diálogos simples",
       questions: 10,
       timeLimit: "15 min",
       difficulty: "Intermedio",
       lastScore: null,
       completed: false,
-      icon: Clock,
+      icon: Clock, */
     },
     {
-      id: 4,
-      title: "Examen Integral A1",
+     /*  id: 4,
+      title: "Examen Integral A2",
       description: "Evaluación completa de todos los módulos",
       questions: 25,
       timeLimit: "20 min",
       difficulty: "Intermedio",
       lastScore: null,
       completed: false,
-      icon: Trophy,
+      icon: Trophy, */
     },
   ];
 
   const achievements = [
-    { title: "Primera Evaluación", description: "Completa tu primer quiz", earned: true },
+    /* { title: "Primera Evaluación", description: "Completa tu primer quiz", earned: true },
     { title: "Puntuación Perfecta", description: "Obtén 100% en cualquier quiz", earned: false },
     { title: "Estudiante Constante", description: "Completa 5 evaluaciones", earned: false },
-    { title: "Maestro A1", description: "Completa el examen integral", earned: false },
+    { title: "Maestro A2", description: "Completa el examen integral", earned: false }, */
   ];
 
-  const getDifficultyColor = (difficulty: string) => {
+  /* const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case "Principiante": return "bg-learning-beginner";
       case "Intermedio": return "bg-learning-intermediate";
       case "Avanzado": return "bg-learning-advanced";
       default: return "bg-muted";
     }
-  };
+  }; */
 
-  const getScoreColor = (score: number) => {
+  /* const getScoreColor = (score: number) => {
     if (score >= 80) return "text-learning-complete";
     if (score >= 60) return "text-learning-intermediate";
     return "text-destructive";
   };
-
+ */
   return (
     <section id="tests" className="py-20 bg-background">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold text-foreground mb-4">
             Evaluaciones y Pruebas
@@ -86,7 +86,7 @@ export const TestsSection = () => {
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Tests List */}
+          
           <div className="lg:col-span-2 space-y-6">
             {tests.map((test, index) => (
               <Card key={test.id} className="p-6 hover:shadow-card transition-all duration-300 animate-fade-in" style={{ animationDelay: `${index * 100}ms` }}>
@@ -145,7 +145,7 @@ export const TestsSection = () => {
             ))}
           </div>
 
-          {/* Achievements Sidebar */}
+          
           <div className="space-y-6">
             <Card className="p-6">
               <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center">
@@ -178,7 +178,7 @@ export const TestsSection = () => {
             </Card>
           </div>
         </div>
-      </div>
+      </div> */}
     </section>
   );
 };
