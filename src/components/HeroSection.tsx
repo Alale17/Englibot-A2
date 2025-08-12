@@ -1,7 +1,7 @@
 import { MessageCircle, Play, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import heroVideo from "C:/Users/Alexander/Documents/GitHub/EngliBot A1/src/assets/hero-bg.mp4";
+import heroVideo from "../assets/hero-bg.mp4";
 
 export const HeroSection = () => {
   const scrollToChat = () => {
