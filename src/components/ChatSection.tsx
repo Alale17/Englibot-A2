@@ -1,282 +1,489 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Send, Bot, User, BookOpen, Volume2, MessageSquare, HelpCircle, Waves } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Send,
+  Bot,
+  User,
+  BookOpen,
+  Volume2,
+  MessageSquare,
+  HelpCircle,
+  Mic,
+  Square,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import ReactMarkdown from "react-markdown";
 
-// ========================= Tipos fuertes =========================
-interface BaseMessage { id: string; timestamp: Date }
+type Sender = "user" | "bot" | "coach";
 
-type Sender = "user" | "bot_en" | "bot_es_audio";
-
-type Message =
-  | (BaseMessage & { kind: "text"; sender: Sender; content: string })
-  | (BaseMessage & { kind: "audio"; sender: Sender; audioUrl: string; transcript?: string });
-
-// Web Speech Recognition (tipado sin `any` y sin depender de lib extra)
-interface SRAlternative { transcript: string; confidence?: number }
-interface SRResult { isFinal: boolean; length: number; [index: number]: SRAlternative }
-interface SRResultList { length: number; [index: number]: SRResult }
-interface SREvent extends Event { results: SRResultList }
-interface SRErrorEvent extends Event { error: string; message?: string }
-interface SRRecognition extends EventTarget {
-  lang: string; interimResults: boolean; maxAlternatives: number;
-  onresult: ((ev: SREvent) => void) | null;
-  onerror: ((ev: SRErrorEvent) => void) | null;
-  onend: ((ev: Event) => void) | null;
-  start(): void; stop(): void;
+interface Message {
+  id: string;
+  content?: string;
+  sender: Sender;
+  timestamp: Date;
+  audioUrl?: string;
+  audioSeconds?: number;
 }
 
-declare global {
-  interface Window {
-    SpeechRecognition?: { new(): SRRecognition };
-    webkitSpeechRecognition?: { new(): SRRecognition };
-  }
-}
+const uuid = () =>
+  (typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
 
-const getSRConstructor = (): (new () => SRRecognition) | null => {
-  if (typeof window === "undefined") return null;
-  return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null;
+// 🔹 Limpia Markdown para que el TTS no lea los símbolos
+const cleanForTTS = (s: string) => {
+  return (
+    s
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/\*(.*?)\*/g, "$1")
+      .replace(/__(.*?)__/g, "$1")
+      .replace(/_(.*?)_/g, "$1")
+      .replace(/```[\s\S]*?```/g, "")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+      .replace(/^\s*[-*+]\s+/gm, "")
+      .replace(/^\s*\d+\.\s+/gm, "")
+      .replace(/[*#_>]+/g, "")
+      .replace(/\s{2,}/g, " ")
+      .trim()
+  );
 };
 
-// ========================= Utilidades TTS =========================
-const pickVoice = (synth: SpeechSynthesis, prefs: string[], langFallback: string): SpeechSynthesisVoice | null => {
-  const voices = synth.getVoices();
-  for (const pref of prefs) {
-    const v = voices.find((vv) => vv.name.includes(pref));
-    if (v) return v;
-  }
-  const byLang = voices.find((v) => v.lang === langFallback);
-  if (byLang) return byLang;
-  const female = voices.find((v) => v.name.toLowerCase().includes("female"));
-  return female ?? voices[0] ?? null;
-};
-
-const speak = (text: string, opts?: { lang?: string; rate?: number; pitch?: number; prefs?: string[] }) => {
-  const { lang = "en-US", rate = 0.98, pitch = 1.05, prefs = [] } = opts ?? {};
-  const synth = window.speechSynthesis;
-  const doSpeak = () => {
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.voice = pickVoice(synth, prefs, lang);
-    utt.lang = lang; utt.rate = rate; utt.pitch = pitch;
-    synth.speak(utt);
-  };
-  if (synth.getVoices().length === 0) {
-    const handler = () => { doSpeak(); synth.removeEventListener("voiceschanged", handler); };
-    synth.addEventListener("voiceschanged", handler);
-  } else doSpeak();
-};
-
-// ========================= Prompts de enseñanza =========================
-const EN_TUTOR_SYSTEM = `You are a friendly English tutor for an A2 learner.
-- Reply ONLY in English.
-- Use 3–6 short sentences. Vary phrasing; avoid repetition.
-- Teach actively: examples, mini-drills, quick checks.
-- Correct errors kindly and offer one alternative.
-- Prefer simple vocabulary; optionally highlight key words with *asterisks*.`;
-
-const ES_AUDIO_TUTOR_PROMPT = `Eres un tutor que RESPONDE EN ESPAÑOL por audio.
-- Sé breve (2–4 frases) y claro.
-- Resume lo que entendiste y da una sugerencia práctica.
-- Propón una micro-tarea: repetir una frase corta en inglés.`;
-
-// ========================= Componente =========================
 export const ChatSection = () => {
-  const [messages, setMessages] = useState<Message[]>([{
-    id: "welcome", kind: "text", sender: "bot_en", timestamp: new Date(),
-    content: "Hi! I'm your A2 English tutor. How can I help today? Vocabulary, grammar, or conversation? 😊",
-  }]);
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: "1",
+      content:
+        "Hello! I'm your friendly A2 English tutor. Ask me anything — we can practice vocabulary, grammar, or conversation. 😊",
+      sender: "bot",
+      timestamp: new Date(),
+    },
+  ]);
   const [inputMessage, setInputMessage] = useState("");
   const [isRecording, setIsRecording] = useState(false);
+  const [recSeconds, setRecSeconds] = useState(0);
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<BlobPart[]>([]);
+  const recordedChunksRef = useRef<BlobPart[]>([]);
+  const recTimerRef = useRef<number | null>(null);
+  const chatBoxRef = useRef<HTMLDivElement | null>(null);
 
-  // Auto-scroll
-  const endRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
-
-  // Gemini
-  const gemini = useMemo(() => new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY), []);
-  const getModel = (name: string) => gemini.getGenerativeModel({ model: name });
+  useEffect(() => {
+    if (chatBoxRef.current) {
+      chatBoxRef.current.scrollTo({
+        top: chatBoxRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  }, [messages]);
 
   const quickSuggestions = [
     { icon: BookOpen, text: "Practicar vocabulario", action: "vocabulary" },
     { icon: MessageSquare, text: "Revisar gramática", action: "grammar" },
     { icon: Volume2, text: "Practicar pronunciación", action: "pronunciation" },
     { icon: HelpCircle, text: "Hacer una pregunta", action: "question" },
-  ] as const;
+  ];
 
-  const handleQuickSuggestion = (action: typeof quickSuggestions[number]["action"]) => {
-    const suggestions: Record<string,string> = {
+  const speak = (text: string, lang: "en-US" | "es-ES") => {
+    const synth = window.speechSynthesis;
+    const pickVoice = () => {
+      const voices = synth.getVoices();
+      const preferredEn = [
+        "Microsoft Aria Online (Natural) - English (United States)",
+        "Google US English",
+        "Microsoft Zira",
+        "Microsoft Emma",
+      ];
+      const preferredEs = [
+        "Microsoft Dalia Online (Natural) - Spanish (Spain)",
+        "Google español",
+        "Microsoft Helena",
+        "Microsoft Laura",
+      ];
+      const prefs = lang === "en-US" ? preferredEn : preferredEs;
+      const voice =
+        voices.find((v) => prefs.includes(v.name)) ||
+        voices.find((v) => v.lang === lang) ||
+        voices[0];
+      const u = new SpeechSynthesisUtterance(text);
+      u.voice = voice || null;
+      u.lang = lang;
+      u.rate = lang === "en-US" ? 0.98 : 1.0;
+      u.pitch = 1.05;
+      synth.speak(u);
+    };
+    if (synth.getVoices().length === 0) {
+      const handler = () => {
+        pickVoice();
+        synth.removeEventListener("voiceschanged", handler);
+      };
+      synth.addEventListener("voiceschanged", handler);
+    } else {
+      pickVoice();
+    }
+  };
+
+  const generateBotResponse = async (userMessage: string): Promise<string> => {
+    try {
+      const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash",
+        generationConfig: {
+          temperature: 0.8,
+          topP: 0.9,
+          topK: 40,
+          maxOutputTokens: 220,
+          frequencyPenalty: 0.7,
+          presencePenalty: 0.2,
+        },
+      });
+      const chat = model.startChat({
+        history: [
+          {
+            role: "user",
+            parts: [
+              {
+                text: [
+                  "You are a patient English tutor for A2 learners.",
+                  "Respond STEP-BY-STEP: in each reply teach ONE small point and STOP.",
+                  "Keep it short: 3–5 lines max. Use simple English.",
+                  "Bold key words using **...** (Markdown).",
+                  "If learner writes in Spanish, answer in simple English with tiny Spanish glosses in parentheses only for tricky words.",
+                  "End every message with a micro task (1–2 items) or a short question.",
+                ].join("\n"),
+              },
+            ],
+          },
+        ],
+      });
+      const result = await chat.sendMessage(userMessage);
+      const response = await result.response;
+      return response.text().trim();
+    } catch {
+      return "Sorry—there was an issue. Could you try again?";
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim()) return;
+    const userMsg: Message = {
+      id: uuid(),
+      content: inputMessage,
+      sender: "user",
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+    setInputMessage("");
+    const botReply = await generateBotResponse(userMsg.content);
+    const botMsg: Message = {
+      id: uuid(),
+      content: botReply,
+      sender: "bot",
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, botMsg]);
+    // 🔹 Ahora habla sin símbolos de Markdown
+    speak(cleanForTTS(botReply), "en-US");
+  };
+
+  const handleQuickSuggestion = (action: string) => {
+    const suggestions: Record<string, string> = {
       vocabulary: "Let's practice A2 vocabulary about daily routines.",
-      grammar: "Can you help me with present simple vs. present continuous?",
-      pronunciation: "I want to practice pronunciation with short sentences.",
-      question: "I have a question about English prepositions.",
+      grammar: "Please help me with present simple vs present continuous.",
+      pronunciation: "I want to practice pronunciation: /θ/ vs /ð/.",
+      question: "Can you explain how to use 'some' and 'any' with examples?",
     };
     setInputMessage(suggestions[action] ?? "");
   };
 
-  // ===== Texto → Bot EN
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return;
-    const userMsg: Message = { id: `${Date.now()}-u`, kind: "text", sender: "user", content: inputMessage, timestamp: new Date() };
-    setMessages((p) => [...p, userMsg]);
-    setInputMessage("");
+  type RecognitionResultEvent = Event & {
+    results: { [i: number]: { [j: number]: { transcript: string } } };
+  };
+  type RecognitionErrorEvent = Event & { error: string };
 
-    const reply = await generateENBotResponse(userMsg.content);
-    const botMsg: Message = { id: `${Date.now()}-ben`, kind: "text", sender: "bot_en", content: reply, timestamp: new Date() };
-    setMessages((p) => [...p, botMsg]);
-
-    speak(reply, { lang: "en-US", rate: 0.95, pitch: 1.08, prefs: ["Microsoft Emma", "Google US English", "Microsoft Zira"] });
+  type CustomSpeechRecognition = {
+    lang: string;
+    interimResults: boolean;
+    maxAlternatives: number;
+    onresult: ((event: RecognitionResultEvent) => void) | null;
+    onerror: ((event: RecognitionErrorEvent) => void) | null;
+    start: () => void;
+    stop: () => void;
   };
 
-  const generateENBotResponse = async (userText: string): Promise<string> => {
+  type CustomWindow = typeof window & {
+    SpeechRecognition: { new (): CustomSpeechRecognition };
+    webkitSpeechRecognition: { new (): CustomSpeechRecognition };
+  };
+
+  const calculateScore = (expected: string, spoken: string): number => {
+    const ew = expected.toLowerCase().split(/\s+/);
+    const sw = spoken.toLowerCase().split(/\s+/);
+    let match = 0;
+    for (let i = 0; i < Math.min(ew.length, sw.length); i++) {
+      if (ew[i] === sw[i]) match++;
+    }
+    return Math.round((match / Math.max(1, sw.length)) * 100);
+  };
+
+  const getGeminiFeedback = async (
+    expected: string,
+    spoken: string,
+    score: number
+  ): Promise<string> => {
     try {
-      const model = getModel("gemini-1.5-flash");
-      const chat = model.startChat({ history: [{ role: "user", parts: [{ text: EN_TUTOR_SYSTEM }]}] });
-      const res = await chat.sendMessage(userText);
-      return res.response.text().trim();
+      const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash",
+        generationConfig: { temperature: 0.6, maxOutputTokens: 160 },
+      });
+      const prompt = `
+Eres profesor de pronunciación. Evalúa SOLO lo pronunciado.
+Esperado: "${expected}"
+Pronunciado: "${spoken}"
+Puntaje sugerido (0-100): ${score}
+
+Entrega en español, máximo 2 líneas, con "Puntaje:" al final.`;
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text().trim();
     } catch {
-      return "Sorry, something went wrong. Please try again.";
+      return "❌ Error al generar la retroalimentación.";
     }
   };
 
-  // ===== Audio → Bot ES por voz (y muestra el audio)
-  const handleAudioButton = async () => {
-    if (isRecording) {
-      mediaRecorderRef.current?.stop();
-      setIsRecording(false);
-      return;
-    }
-    try {
+  const handlePronunciationEvaluation = () => {
+    const lastBot =
+      [...messages].reverse().find((m) => m.sender === "bot")?.content ??
+      "How are you today?";
+    const customWindow = window as CustomWindow;
+    const recognition = new (
+      customWindow.SpeechRecognition || customWindow.webkitSpeechRecognition
+    )();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = async (e) => {
+      const spoken = (e as RecognitionResultEvent).results[0][0].transcript;
+      const score = calculateScore(lastBot, spoken);
+      const feedback = await getGeminiFeedback(lastBot, spoken, score);
+      const coachMsg: Message = {
+        id: uuid(),
+        content: feedback,
+        sender: "coach",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, coachMsg]);
+      // 🔹 Ahora habla sin símbolos de Markdown
+      speak(cleanForTTS(feedback), "es-ES");
+    };
+
+    recognition.onerror = (e) => {
+      const err = (e as RecognitionErrorEvent).error;
+      const errorMessage: Message = {
+        id: uuid(),
+        content: "❌ Error al reconocer el audio: " + err,
+        sender: "coach",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    };
+
+    const startMediaRecorder = async () => {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(stream);
-      chunksRef.current = [];
-      mr.ondataavailable = (ev) => { if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data); };
+      mediaRecorderRef.current = mr;
+      recordedChunksRef.current = [];
+      mr.ondataavailable = (evt) => {
+        if (evt.data && evt.data.size > 0) recordedChunksRef.current.push(evt.data);
+      };
       mr.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const blob = new Blob(recordedChunksRef.current, { type: "audio/webm" });
         const url = URL.createObjectURL(blob);
-        const audioMsg: Message = { id: `${Date.now()}-ua`, kind: "audio", sender: "user", audioUrl: url, timestamp: new Date() };
-        setMessages((p) => [...p, audioMsg]);
-
-        const transcript = await transcribeWithWebSpeech();
-        const replyText = await generateESAudioTutorReply(transcript ?? "(sin transcripción)");
-        const botTextMsg: Message = { id: `${Date.now()}-bes`, kind: "text", sender: "bot_es_audio", content: replyText, timestamp: new Date() };
-        setMessages((p) => [...p, botTextMsg]);
-
-        speak(replyText, { lang: "es-ES", rate: 1.0, pitch: 1.0, prefs: ["Microsoft Helena", "Google español", "Microsoft Laura"] });
+        const secs = await getAudioDurationSeconds(url);
+        const audioMsg: Message = {
+          id: uuid(),
+          sender: "user",
+          timestamp: new Date(),
+          audioUrl: url,
+          audioSeconds: Math.round(secs),
+        };
+        setMessages((prev) => [...prev, audioMsg]);
+        stream.getTracks().forEach((t) => t.stop());
       };
       mr.start();
-      mediaRecorderRef.current = mr;
+      setRecSeconds(0);
+      recTimerRef.current = window.setInterval(() => setRecSeconds((s) => s + 1), 1000);
       setIsRecording(true);
-    } catch {
-      const errorMsg: Message = { id: `${Date.now()}-errmic`, kind: "text", sender: "bot_es_audio", content: "❌ No pude acceder al micrófono. Revisa permisos.", timestamp: new Date() };
-      setMessages((p) => [...p, errorMsg]);
-    }
-  };
+      recognition.start();
+    };
 
-  // ===== Transcripción Web Speech (sin any)
-  const transcribeWithWebSpeech = async (): Promise<string | undefined> => {
-    const Ctor = getSRConstructor();
-    if (!Ctor) return undefined;
-    return new Promise<string | undefined>((resolve) => {
-      let finished = false;
-      try {
-        const rec = new Ctor();
-        rec.lang = "en-US"; rec.interimResults = false; rec.maxAlternatives = 1;
-        rec.onresult = (ev: SREvent) => {
-          finished = true;
-          const list = ev.results;
-          if (list && list.length > 0) {
-            const first = list[0];
-            if (first && first.length > 0) {
-              resolve(first[0].transcript);
-              return;
-            }
-          }
-          resolve(undefined);
-        };
-        rec.onerror = () => { if (!finished) resolve(undefined); };
-        rec.onend = () => { if (!finished) resolve(undefined); };
-        rec.start();
-        window.setTimeout(() => { try { rec.stop(); } catch { /* empty */ } }, 6000);
-      } catch {
-        if (!finished) resolve(undefined);
+    const stopAll = () => {
+      recognition.stop();
+      mediaRecorderRef.current?.stop();
+      if (recTimerRef.current) {
+        clearInterval(recTimerRef.current);
+        recTimerRef.current = null;
       }
-    });
-  };
+      setIsRecording(false);
+    };
 
-  const generateESAudioTutorReply = async (userText: string): Promise<string> => {
-    try {
-      const model = getModel("gemini-1.5-flash");
-      const chat = model.startChat({ history: [{ role: "user", parts: [{ text: ES_AUDIO_TUTOR_PROMPT }]}] });
-      const res = await chat.sendMessage(userText);
-      return res.response.text().trim();
-    } catch {
-      return "Hubo un problema generando la respuesta por voz.";
+    if (!isRecording) {
+      startMediaRecorder().catch(() => setIsRecording(false));
+    } else {
+      stopAll();
     }
   };
 
-  // ========================= UI =========================
+  const getAudioDurationSeconds = (objectUrl: string) =>
+    new Promise<number>((resolve) => {
+      const a = new Audio(objectUrl);
+      a.addEventListener("loadedmetadata", () =>
+        resolve(isFinite(a.duration) ? a.duration : 0)
+      );
+    });
+
   return (
     <section id="chat" className="py-20 bg-background">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-foreground mb-4">Chat con tu Asistente Virtual</h2>
-          <p className="text-xl text-muted-foreground">Conversa en tiempo real y recibe ayuda personalizada</p>
+          <h2 className="text-4xl font-bold text-foreground mb-4">
+            Chat con tu Asistente Virtual
+          </h2>
+          <p className="text-xl text-muted-foreground">
+            Conversa en tiempo real y recibe ayuda personalizada
+          </p>
         </div>
-
         <Card className="p-6 shadow-card">
-          {/* Lista de mensajes */}
-          <div className="h-96 overflow-y-auto mb-6 space-y-4 border rounded-lg p-4 bg-muted/30">
+          <div
+            ref={chatBoxRef}
+            className="h-96 overflow-y-auto mb-6 space-y-4 border rounded-lg p-4 bg-muted/30 scroll-smooth"
+          >
             {messages.map((m) => (
-              <div key={m.id} className={`flex ${m.sender === "user" ? "justify-end" : "justify-start"} animate-fade-in`}>
-                <div className={`flex items-start space-x-2 max-w-xs lg:max-w-md ${m.sender === "user" ? "flex-row-reverse space-x-reverse" : ""}`}>
-                  <div className={`p-2 rounded-full ${m.sender === "user" ? "bg-primary" : m.sender === "bot_en" ? "bg-secondary" : "bg-amber-500"}`} title={m.sender === "bot_en" ? "Tutor EN" : m.sender === "bot_es_audio" ? "Tutor ES (Audio)" : "Tú"}>
-                    {m.sender === "user" ? <User className="h-4 w-4 text-white" /> : <Bot className="h-4 w-4 text-white" />}
+              <div
+                key={m.id}
+                className={`flex ${
+                  m.sender === "user" ? "justify-end" : "justify-start"
+                } animate-in fade-in-0`}
+              >
+                <div
+                  className={`flex items-start gap-2 max-w-xs lg:max-w-md ${
+                    m.sender === "user" ? "flex-row-reverse" : ""
+                  }`}
+                >
+                  <div
+                    className={`p-2 rounded-full ${
+                      m.sender === "user"
+                        ? "bg-primary"
+                        : m.sender === "bot"
+                        ? "bg-secondary"
+                        : "bg-amber-200"
+                    }`}
+                  >
+                    {m.sender === "user" ? (
+                      <User className="h-4 w-4 text-white" />
+                    ) : m.sender === "bot" ? (
+                      <Bot className="h-4 w-4 text-white" />
+                    ) : (
+                      <Volume2 className="h-4 w-4" />
+                    )}
                   </div>
-                  <div className={`p-3 rounded-lg ${m.sender === "user" ? "bg-primary text-primary-foreground" : "bg-card border"}`}>
-                    {m.kind === "text" && <p className="text-sm whitespace-pre-wrap">{m.content}</p>}
-                    {m.kind === "audio" && (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2"><Waves className="h-4 w-4" /><span className="text-xs text-muted-foreground">Audio message</span></div>
-                        <audio src={m.audioUrl} controls className="w-56" />
-                        {m.transcript && <p className="text-xs text-muted-foreground">Transcript: {m.transcript}</p>}
+                  <div
+                    className={`p-3 rounded-lg ${
+                      m.sender === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-card border"
+                    } w-fit`}
+                  >
+                    {m.content && (
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => (
+                            <p className="text-sm whitespace-pre-wrap">
+                              {children}
+                            </p>
+                          ),
+                        }}
+                      >
+                        {m.content}
+                      </ReactMarkdown>
+                    )}
+                    {m.audioUrl && (
+                      <div className="flex flex-col gap-1">
+                        <audio
+                          src={m.audioUrl}
+                          controls
+                          preload="metadata"
+                          className="w-56"
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          {m.audioSeconds ?? 0}s
+                        </span>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
             ))}
-            <div ref={endRef} />
           </div>
-
-          {/* Sugerencias rápidas */}
           <div className="mb-6">
-            <p className="text-sm text-muted-foreground mb-3">Sugerencias rápidas:</p>
+            <p className="text-sm text-muted-foreground mb-3">
+              Sugerencias rápidas:
+            </p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {quickSuggestions.map((s) => (
-                <Button key={s.text} variant="outline" size="sm" onClick={() => handleQuickSuggestion(s.action)} className="h-auto p-3 text-xs hover:bg-primary/10">
+              {quickSuggestions.map((s, i) => (
+                <Button
+                  key={i}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleQuickSuggestion(s.action)}
+                  className="h-auto p-3 text-xs hover:bg-primary/10"
+                >
                   <s.icon className="h-4 w-4 mb-1" />
                   <span className="block">{s.text}</span>
                 </Button>
               ))}
             </div>
           </div>
-
-          {/* Entrada + botones */}
           <div className="flex gap-2 items-center">
-            <Input value={inputMessage} onChange={(e) => setInputMessage(e.target.value)} placeholder="Escribe tu mensaje aquí... (responderá en INGLÉS)" onKeyDown={(e) => e.key === "Enter" && handleSendMessage()} className="flex-1" />
-            <Button onClick={handleSendMessage} className="px-4" aria-label="Enviar mensaje de texto"><Send className="h-4 w-4" /></Button>
-            <Button onClick={handleAudioButton} variant={isRecording ? "default" : "secondary"} className={`px-3 relative ${isRecording ? "animate-pulse" : ""}`} aria-label={isRecording ? "Detener grabación" : "Iniciar grabación"} title="Pulsa para enviar un audio (responderé en ESPAÑOL por voz)">
-              <span className="inline-flex items-center gap-2">🎙️</span>
-              {isRecording && <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-500 animate-ping" />}
+            <Input
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              placeholder="Escribe tu mensaje aquí..."
+              onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+              className="flex-1"
+            />
+            <Button onClick={handleSendMessage} className="px-4">
+              <Send className="h-4 w-4" />
             </Button>
-          </div>
-
-          <div className="mt-3 text-[11px] text-muted-foreground">
-            <p><strong>Voces:</strong> Bot EN (inglés) usa una voz inglesa; Bot ES (audio) contesta en español con una voz distinta. Tus audios se muestran en el chat.</p>
+            <Button
+              onClick={handlePronunciationEvaluation}
+              variant={isRecording ? "destructive" : "secondary"}
+              className={`relative px-3 ${isRecording ? "animate-pulse" : ""}`}
+              title={
+                isRecording ? "Detener" : "Grabar / Evaluar pronunciación"
+              }
+            >
+              <span
+                className={`absolute inset-0 rounded-md ring-2 ring-offset-2 pointer-events-none ${
+                  isRecording ? "ring-red-400/60" : "ring-transparent"
+                }`}
+              />
+              {isRecording ? (
+                <Square className="h-4 w-4" />
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
+              {isRecording && (
+                <span className="ml-2 text-xs tabular-nums">
+                  {recSeconds}s
+                </span>
+              )}
+            </Button>
           </div>
         </Card>
       </div>
