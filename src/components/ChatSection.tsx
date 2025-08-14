@@ -148,11 +148,11 @@ export const ChatSection = () => {
               {
                 text: [
                   "You are a patient English tutor for A2 learners.",
-                  "Respond STEP-BY-STEP: in each reply teach ONE small point and STOP.",
-                  "Keep it short: 3–5 lines max. Use simple English.",
+                  "Respond STEP-BY-STEP",
+                  "Keep it short: 2–4 lines max. Use simple English.", 
                   "Bold key words using **...** (Markdown).",
-                  "If learner writes in Spanish, answer in simple English with tiny Spanish glosses in parentheses only for tricky words.",
-                  "End every message with a micro task (1–2 items) or a short question.",
+                  "If learner writes in Spanish, answer in simple English.",
+                  "Be flexible with the conversation",
                 ].join("\n"),
               },
             ],
@@ -192,9 +192,9 @@ export const ChatSection = () => {
   const handleQuickSuggestion = (action: string) => {
     const suggestions: Record<string, string> = {
       vocabulary: "Let's practice A2 vocabulary about daily routines.",
-      grammar: "Please help me with present simple vs present continuous.",
-      pronunciation: "I want to practice pronunciation: /θ/ vs /ð/.",
-      question: "Can you explain how to use 'some' and 'any' with examples?",
+      grammar: "Give me an explanation about how to use the verb to be.",
+      pronunciation: "I want to practice pronunciation, give me a sentence to practice.",
+      question: "Tell me simple questions in general",
     };
     setInputMessage(suggestions[action] ?? "");
   };
@@ -241,12 +241,11 @@ export const ChatSection = () => {
         generationConfig: { temperature: 0.6, maxOutputTokens: 160 },
       });
       const prompt = `
-Eres profesor de pronunciación. Evalúa SOLO lo pronunciado.
-Esperado: "${expected}"
-Pronunciado: "${spoken}"
-Puntaje sugerido (0-100): ${score}
-
-Entrega en español, máximo 2 líneas, con "Puntaje:" al final.`;
+            Eres profesor de pronunciación. Evalúa SOLO lo pronunciado. Premite al usuario que repita si lo hace mal. Se flexible con el alumno
+            Esperado: "${expected}"
+            Pronunciado: "${spoken}"
+            Puntaje sugerido (0-100): ${score}
+            Entrega en español, máximo 1 líneas, con "Puntaje:" al final.`;
       const result = await model.generateContent(prompt);
       const response = await result.response;
       return response.text().trim();
