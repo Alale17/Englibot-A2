@@ -241,7 +241,7 @@ export const ChatSection = () => {
         generationConfig: { temperature: 0.6, maxOutputTokens: 160 },
       });
       const prompt = `
-            Eres profesor de pronunciación. Evalúa SOLO lo pronunciado. Premite al usuario que repita si lo hace mal. Se flexible con el alumno
+            Eres profesor de pronunciación. Evalúa SOLO lo pronunciado. Premite al usuario que repita si lo hace mal. Sé flexible: si hay similitud, no pongas 0, pon el puntaje que se merece recuerda que es del 0 al 100. 
             Esperado: "${expected}"
             Pronunciado: "${spoken}"
             Puntaje sugerido (0-100): ${score}
