@@ -243,11 +243,11 @@ export const ChatSection = () => {
         generationConfig: { temperature: 0.6, maxOutputTokens: 160 },
       });
       const prompt = `
-            Eres profesor de pronunciación. Evalúa SOLO lo pronunciado. Premite al usuario que repita si lo hace mal. Sé flexible: si hay similitud, no pongas 0, pon el puntaje que se merece recuerda que es del 0 al 100. 
+            Eres profesor de pronunciación. Sé flexible: si hay similitud, no pongas 0, pon el puntaje que se merece recuerda que es del 0 al 100 solo manda el puntaje. 
             Esperado: "${expected}"
             Pronunciado: "${spoken}"
             Puntaje sugerido (0-100): ${score}
-            Entrega en español, máximo 1 líneas, con "Puntaje:" al final.`;
+            "Puntaje:"`;
       const result = await model.generateContent(prompt);
       const response = await result.response;
       return response.text().trim();
