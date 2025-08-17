@@ -27,6 +27,9 @@ interface Message {
   audioSeconds?: number;
 }
 
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string;
+const MODEL = import.meta.env.VITE_GEMINI_MODEL || "gemini-1.5-pro";
+
 const uuid = () =>
   (typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
@@ -125,12 +128,11 @@ export const ChatSection = () => {
       pickVoice();
     }
   };
-
   const generateBotResponse = async (userMessage: string): Promise<string> => {
     try {
-      const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+      const genAI = new GoogleGenerativeAI(API_KEY);
       const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
+        model: MODEL, // <- usa el modelo de .env (pro/flash)
         generationConfig: {
           temperature: 0.8,
           topP: 0.9,
@@ -235,9 +237,9 @@ export const ChatSection = () => {
     score: number
   ): Promise<string> => {
     try {
-      const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+      const genAI = new GoogleGenerativeAI(API_KEY);
       const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
+        model: MODEL, // <- usa el mismo modelo configurado
         generationConfig: { temperature: 0.6, maxOutputTokens: 160 },
       });
       const prompt = `
